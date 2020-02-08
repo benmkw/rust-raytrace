@@ -1,12 +1,12 @@
-use vec::{Vec3, Ray};
-use materials::Material;
+use crate::materials::Material;
+use crate::vec::{Ray, Vec3};
 
 #[derive(Clone, Copy)]
 pub struct Hit<'obj> {
     pub t: f32,
     pub p: Vec3,
     pub normal: Vec3,
-    pub material: &'obj Material
+    pub material: &'obj dyn Material,
 }
 
 pub trait Model {
@@ -16,7 +16,7 @@ pub trait Model {
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f32,
-    pub material: Box<Material>
+    pub material: Box<dyn Material>,
 }
 
 /// Minimum distance a ray must travel before we'll consider a possible hit.
@@ -39,20 +39,20 @@ impl Model for Sphere {
             if t >= T_MIN {
                 let p = r.point_at_parameter(t);
                 return Some(Hit {
-                    t: t,
-                    p: p,
+                    t,
+                    p,
                     normal: (p - self.center) / self.radius,
-                    material: &*self.material
+                    material: &*self.material,
                 });
             }
             let t = (-hb + discriminant.sqrt()) / a;
             if t >= T_MIN {
                 let p = r.point_at_parameter(t);
                 return Some(Hit {
-                    t: t,
-                    p: p,
+                    t,
+                    p,
                     normal: (p - self.center) / self.radius,
-                    material: &*self.material
+                    material: &*self.material,
                 });
             }
         }
@@ -60,15 +60,17 @@ impl Model for Sphere {
     }
 }
 
-impl Model for Vec<Box<Model>> {
+impl Model for Vec<Box<dyn Model>> {
     fn hit(&self, r: &Ray) -> Option<Hit> {
         let mut best = None;
         for child in self {
             if let Some(hit) = child.hit(r) {
                 match best {
                     None => best = Some(hit),
-                    Some(prev) => if hit.t < prev.t {
-                        best = Some(hit)
+                    Some(prev) => {
+                        if hit.t < prev.t {
+                            best = Some(hit)
+                        }
                     }
                 }
             }
