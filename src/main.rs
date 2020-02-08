@@ -19,51 +19,54 @@ use crate::vec::{random_in_unit_disc, Vec3};
 use rand::random;
 
 /// Generate a Model containing a bunch of randomly placed spheres.
-fn random_scene() -> Box<dyn Model> {
+fn random_scene() -> Model {
     let mut spheres: Vec<Sphere> = vec![
         Sphere {
             center: Vec3(0.0, 0.0, -1000.0),
             radius: 1000.0,
-            material: Box::new(Lambertian {
+            material: Material::Lambertian(Lambertian {
                 albedo: Vec3(1.0, 0.6, 0.5),
             }),
         },
         Sphere {
             center: Vec3(-4.0, 0.0, 2.0),
             radius: 2.0,
-            material: Box::new(Lambertian {
+            material: Material::Lambertian(Lambertian {
                 albedo: Vec3(0.6, 0.2, 0.2),
             }),
         },
         Sphere {
             center: Vec3(0.0, 0.0, 2.0),
             radius: 2.0,
-            material: Box::new(Dielectric { index: 1.5 }),
+            material: Material::Dielectric(Dielectric { index: 1.5 }),
         },
         Sphere {
             center: Vec3(4.0, 0.0, 2.0),
             radius: 2.0,
-            material: Box::new(Metal {
+            material: Material::Metal(Metal {
                 albedo: Vec3(0.85, 0.9, 0.7),
                 fuzz: 0.0,
             }),
         },
     ];
 
-    fn random_material() -> Box<dyn Material> {
-        match random() {
-            0.0..=0.7 => Box::new(Lambertian { albedo: random() }),
-            0.7..=0.9 => Box::new(Metal {
+    fn random_material() -> Material {
+        let rand = random::<f32>();
+        if rand <= 0.7 {
+            Material::Lambertian(Lambertian { albedo: random() })
+        } else if rand <= 0.9 {
+            Material::Metal(Metal {
                 albedo: Vec3(0.5, 0.5, 0.5) + 0.5 * random::<Vec3>(),
                 fuzz: 0.5 * random::<f32>(),
-            }),
-            _ => Box::new(Dielectric { index: 1.5 }),
+            })
+        } else {
+            Material::Dielectric(Dielectric { index: 1.5 })
         }
     }
 
     for _ in 0..500 {
         let r = 0.4;
-        let Vec3(x, y, _) = random_in_unit_disc();
+        let Vec3(x, y, ..) = random_in_unit_disc();
         let pos = 20.0 * Vec3(x, y, 0.0) + Vec3(0.0, 0.0, r);
         if spheres
             .iter()
@@ -76,19 +79,15 @@ fn random_scene() -> Box<dyn Model> {
             });
         }
     }
-
-    let world: Vec<Box<dyn Model>> = spheres
-        .into_iter()
-        .map(|s| Box::new(s) as Box<dyn Model>)
-        .collect();
-    Box::new(world)
+    let world: Vec<Model> = spheres.into_iter().map(Model::Sphere).collect();
+    Model::ModelVec(world)
 }
 
 fn main() {
     const WIDTH: usize = 800;
     const HEIGHT: usize = 400;
 
-    const NSAMPLES: usize = 100;
+    const NSAMPLES: usize = 50;
 
     let scene = random_scene();
 
@@ -107,7 +106,7 @@ fn main() {
         focus_distance,
     );
 
-    let pixels = render::render(&*scene, &camera, WIDTH, HEIGHT, NSAMPLES);
+    let pixels = render::render(&scene, &camera, WIDTH, HEIGHT, NSAMPLES);
 
     let filename = "out.png";
     match lodepng::encode24_file(filename, &pixels, WIDTH, HEIGHT) {

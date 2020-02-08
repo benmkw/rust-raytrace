@@ -2,32 +2,42 @@ use crate::model::Hit;
 use crate::vec::{random_in_unit_sphere, Ray, Vec3};
 use rand::random;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Scatter {
     pub color: Vec3,
     pub ray: Option<Ray>,
 }
 
-pub trait Material {
-    fn scatter(&self, r_in: &Ray, rec: &Hit) -> Scatter;
+pub enum Material {
+    Lambertian(Lambertian),
+    Metal(Metal),
+    Dielectric(Dielectric),
+}
+
+impl Material {
+    pub fn scatter(&self, r_in: &Ray, rec: &Hit) -> Scatter {
+        match self {
+            Material::Lambertian(l) => scatter_lambertian(l, r_in, rec),
+            Material::Metal(m) => scatter_metal(m, r_in, rec),
+            Material::Dielectric(d) => scatter_dielectric(d, r_in, rec),
+        }
+    }
 }
 
 pub struct Lambertian {
     pub albedo: Vec3,
 }
 
-impl Material for Lambertian {
-    fn scatter(&self, _r_in: &Ray, hit: &Hit) -> Scatter {
-        let target = hit.p + hit.normal + random_in_unit_sphere();
-        Scatter {
-            color: self.albedo,
-            ray: Some(Ray::new(hit.p, target - hit.p)),
-        }
+fn scatter_lambertian(lambertian: &Lambertian, _r_in: &Ray, hit: &Hit) -> Scatter {
+    let target = hit.p + hit.normal + random_in_unit_sphere();
+    Scatter {
+        color: lambertian.albedo,
+        ray: Some(Ray::new(hit.p, target - hit.p)),
     }
 }
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v - 2.0 * v.dot(n) * n
+    v - 2.0 * v.dot(&n) * n
 }
 
 pub struct Metal {
@@ -35,19 +45,17 @@ pub struct Metal {
     pub fuzz: f32,
 }
 
-impl Material for Metal {
-    fn scatter(&self, r_in: &Ray, hit: &Hit) -> Scatter {
-        let reflected = reflect(r_in.direction, hit.normal);
-        let scattered = Ray::new(hit.p, reflected + self.fuzz * random_in_unit_sphere());
+fn scatter_metal(metal: &Metal, r_in: &Ray, hit: &Hit) -> Scatter {
+    let reflected = reflect(r_in.direction, hit.normal);
+    let scattered = Ray::new(hit.p, reflected + metal.fuzz * random_in_unit_sphere());
 
-        Scatter {
-            color: self.albedo,
-            ray: if scattered.direction.dot(hit.normal) <= 0.0 {
-                None
-            } else {
-                Some(scattered)
-            },
-        }
+    Scatter {
+        color: metal.albedo,
+        ray: if scattered.direction.dot(&hit.normal) <= 0.0 {
+            None
+        } else {
+            Some(scattered)
+        },
     }
 }
 
@@ -62,7 +70,7 @@ pub struct Dielectric {
 fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
     let uv = v.to_unit_vector();
 
-    let dt = uv.dot(n);
+    let dt = uv.dot(&n);
     let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
     if discriminant > 0.0 {
         Some(ni_over_nt * (uv - dt * n) - discriminant.sqrt() * n)
@@ -81,37 +89,34 @@ fn schlick(cosine: f32, index: f32) -> f32 {
 
 const WHITE: Vec3 = Vec3(1.0, 1.0, 1.0);
 
-impl Material for Dielectric {
-    fn scatter(&self, r_in: &Ray, hit: &Hit) -> Scatter {
-        let outward_normal: Vec3;
-        let ni_over_nt: f32;
-        let cosine: f32;
+fn scatter_dielectric(dielectric: &Dielectric, r_in: &Ray, hit: &Hit) -> Scatter {
+    let outward_normal: Vec3;
 
-        if r_in.direction.dot(hit.normal) > 0.0 {
-            outward_normal = -hit.normal;
-            ni_over_nt = self.index;
-            cosine = self.index * r_in.direction.dot(hit.normal) / r_in.direction.length();
-        } else {
-            outward_normal = hit.normal;
-            ni_over_nt = 1.0 / self.index;
-            cosine = -r_in.direction.dot(hit.normal) / r_in.direction.length();
-        }
+    let (ni_over_nt, cosine) = if r_in.direction.dot(&hit.normal) > 0.0 {
+        outward_normal = -&hit.normal;
+        (
+            dielectric.index,
+            dielectric.index * r_in.direction.dot(&hit.normal) / r_in.direction.length(),
+        )
+    } else {
+        outward_normal = hit.normal;
+        (
+            1.0 / dielectric.index,
+            -r_in.direction.dot(&hit.normal) / r_in.direction.length(),
+        )
+    };
 
-        match refract(r_in.direction, outward_normal, ni_over_nt) {
-            Some(refracted) => {
-                if random::<f32>() > schlick(cosine, self.index) {
-                    return Scatter {
-                        color: WHITE,
-                        ray: Some(Ray::new(hit.p, refracted)),
-                    };
-                }
-            }
-            None => {}
+    if let Some(refracted) = refract(r_in.direction, outward_normal, ni_over_nt) {
+        if random::<f32>() > schlick(cosine, dielectric.index) {
+            return Scatter {
+                color: WHITE,
+                ray: Some(Ray::new(hit.p, refracted)),
+            };
         }
+    }
 
-        Scatter {
-            color: WHITE,
-            ray: Some(Ray::new(hit.p, reflect(r_in.direction, hit.normal))),
-        }
+    Scatter {
+        color: WHITE,
+        ray: Some(Ray::new(hit.p, reflect(r_in.direction, hit.normal))),
     }
 }
