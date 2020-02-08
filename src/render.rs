@@ -54,8 +54,13 @@ pub fn render(scene: &Model, camera: &Camera, width: usize, height: usize, sampl
             }
             col = col / samples as f32;
             col = Vec3(col.x().sqrt(), col.y().sqrt(), col.z().sqrt());
-            let rgb = col.to_u8();
-            pixels.push(RGB { r: rgb[0], g: rgb[1], b: rgb[2] });
+            let rgb = col.to_rgb();
+            pixels.push(RGB {
+                r: rgb.r,
+                g: rgb.g,
+                b: rgb.b,
+            });
+            pixels.push(col.to_rgb());
         }
     }
     pixels

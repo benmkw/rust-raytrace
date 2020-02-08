@@ -1,3 +1,4 @@
+use lodepng::RGB;
 use rand::{
     distributions::{Distribution, Standard},
     random, Rng,
@@ -25,7 +26,7 @@ impl Vec3 {
     pub fn squared_length(self) -> f32 { self.dot(self) }
     pub fn length(self) -> f32 { self.squared_length().sqrt() }
 
-    pub fn to_u8(&self) -> [u8;3] {
+    pub fn to_rgb(&self) -> RGB<u8> {
         fn u(f: f32) -> u8 {
             if f < 0.0 {
                 0
@@ -35,7 +36,11 @@ impl Vec3 {
                 (f * 255.9) as i32 as u8
             }
         }
-        [u(self.0), u(self.1), u(self.2)]
+        RGB::<u8> {
+            r: u(self.0),
+            g: u(self.1),
+            b: u(self.2),
+        }
     }
 
     pub fn to_unit_vector(&self) -> Vec3 {
