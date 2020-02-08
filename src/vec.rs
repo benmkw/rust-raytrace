@@ -1,5 +1,8 @@
+use rand::{
+    distributions::{Distribution, Standard},
+    random, Rng,
+};
 use std::ops::*;
-use rand::{Rand, Rng, random};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3(pub f32, pub f32, pub f32);
@@ -83,9 +86,10 @@ impl Div<f32> for Vec3 {
     }
 }
 
-impl Rand for Vec3 {
-    fn rand<R: Rng>(rng: &mut R) -> Vec3 {
-        Vec3(rng.gen(), rng.gen(), rng.gen())
+impl Distribution<Vec3> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+        let (x, y, z) = rng.gen();
+        Vec3(x, y, z)
     }
 }
 
