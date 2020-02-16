@@ -1,3 +1,12 @@
+## notes for this fork:
+- updates to rust 2018
+- updated deps
+- turned polymorphism into enum variants and reduced boxing which gives better performance
+
+- need to measure performance more carefully before giving numbers but should be noticeable
+- the original goal of the author was a simple raytracer so optimizing it was easy and just a fun little exercise, there are other versions of it available with multi threading or simd
+
+
 # Ray tracing in one weekend
 
 This is a straightforward port of the code in
